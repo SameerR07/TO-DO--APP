@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern To-Do App</title>
+    <style>
+        * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #121214;
+    color: #e1e1e6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.todo-container {
+    background: #202024;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    width: 100%;
+    max-width: 450px;
+}
+
+h2 {
+    margin-bottom: 1.5rem;
+    text-align: center;
+    color: #04d361;
+}
+
+.todo-input-box {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 1.5rem;
+}
+
+#todo-input {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #323238;
+    background: #121214;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 1rem;
+    outline: none;
+}
+
+#todo-input:focus {
+    border-color: #04d361;
+}
+
+#add-btn {
+    background: #04d361;
+    color: #000;
+    border: none;
+    padding: 0 20px;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+#add-btn:hover {
+    background: #00b34d;
+}
+
+#todo-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.todo-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #29292e;
+    padding: 12px;
+    border-radius: 4px;
+    border-left: 4px solid #8257e5;
+}
+
+.todo-item.completed {
+    border-left-color: #04d361;
+    opacity: 0.6;
+}
+
+.todo-item.completed .task-text {
+    text-decoration: line-through;
+}
+
+.task-text {
+    flex: 1;
+    margin-right: 10px;
+    word-break: break-all;
+}
+
+.task-text[contenteditable="true"] {
+    background: #121214;
+    padding: 2px 6px;
+    border-radius: 2px;
+    outline: 1px solid #8257e5;
+}
+
+.actions {
+    display: flex;
+    gap: 5px;
+}
+
+.actions button {
+    background: transparent;
+    border: 1px solid #323238;
+    color: #a8a8b3;
+    padding: 5px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.actions .complete-btn:hover { color: #04d361; border-color: #04d361; }
+.actions .edit-btn:hover { color: #ffdb58; border-color: #ffdb58; }
+.actions .delete-btn:hover { color: #f75a68; border-color: #f75a68; }
+    </style>
+</head>
+<body>
+    <div class="todo-container">
+        <h2>Task Manager</h2>
+        <div class="todo-input-box">
+            <input type="text" id="todo-input" placeholder="Add a new task..." autocomplete="off">
+            <button id="add-btn">Add</button>
+        </div>
+        <ul id="todo-list"></ul>
+    </div>
+
+    <script>// Select DOM Elements
+const todoInput = document.getElementById('todo-input');
+const addBtn = document.getElementById('add-btn');
+const todoList = document.getElementById('todo-list');
+
+// Load tasks from localStorage or initialize empty array
+let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+// Initial render
+renderTasks();
+
+// Event Listeners
+addBtn.addEventListener('click', addTask);
+todoInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') addTask();
+});
+
+// Add Task
+function addTask() {
+    const taskText = todoInput.value.trim();
+    if (taskText === '') return;
+
+    const newTask = {
+        id: Date.now(),
+        text: taskText,
+        completed: false
+    };
+
+    tasks.push(newTask);
+    saveAndRender();
+    todoInput.value = '';
+}
+
+// Delete Task
+function deleteTask(id) {
+    tasks = tasks.filter(task => task.id !== id);
+    saveAndRender();
+}
+
+// Toggle Complete
+function toggleComplete(id) {
+    tasks = tasks.map(task => {
+        if (task.id === id) {
+            return { ...task, completed: !task.completed };
+        }
+        return task;
+    });
+    saveAndRender();
+}
+
+// Edit Task text inline using contenteditable
+function editTask(id, element) {
+    const isEditing = element.getAttribute('contenteditable') === 'true';
+    const editBtn = element.nextElementSibling.querySelector('.edit-btn');
+
+    if (!isEditing) {
+        // Turn on edit mode
+        element.setAttribute('contenteditable', 'true');
+        element.focus();
+        editBtn.textContent = 'Save';
+    } else {
+        // Turn off edit mode and save
+        element.setAttribute('contenteditable', 'false');
+        editBtn.textContent = 'Edit';
+        
+        const updatedText = element.textContent.trim();
+        if (updatedText === '') {
+            deleteTask(id);
+        } else {
+            tasks = tasks.map(task => {
+                if (task.id === id) {
+                    return { ...task, text: updatedText };
+                }
+                return task;
+            });
+            saveToLocalStorage(); // Save changes without full re-render to prevent focus loss
+        }
+    }
+}
+
+// Save to LocalStorage
+function saveToLocalStorage() {
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+}
+
+// Sync state to LocalStorage and update View
+function saveAndRender() {
+    saveToLocalStorage();
+    renderTasks();
+}
+
+// Render Tasks UI
+function renderTasks() {
+    todoList.innerHTML = '';
+
+    tasks.forEach(task => {
+        const li = document.createElement('li');
+        li.className = `todo-item ${task.completed ? 'completed' : ''}`;
+
+        li.innerHTML = `
+            <span class="task-text" data-id="${task.id}">${task.text}</span>
+            <div class="actions">
+                <button class="complete-btn">${task.completed ? 'Undo' : 'Done'}</button>
+                <button class="edit-btn">Edit</button>
+                <button class="delete-btn">Delete</button>
+            </div>
+        `;
+
+        // Action button events
+        const taskTextEl = li.querySelector('.task-text');
+        const completeBtn = li.querySelector('.complete-btn');
+        const editBtn = li.querySelector('.edit-btn');
+        const deleteBtn = li.querySelector('.delete-btn');
+
+        completeBtn.addEventListener('click', () => toggleComplete(task.id));
+        editBtn.addEventListener('click', () => editTask(task.id, taskTextEl));
+        deleteBtn.addEventListener('click', () => deleteTask(task.id));
+        
+        // Handle enter key while editing
+        taskTextEl.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                editTask(task.id, taskTextEl);
+            }
+        });
+
+        todoList.appendChild(li);
+    });
+}</script>
+</body>
+</html>
